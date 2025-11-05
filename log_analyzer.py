@@ -6,6 +6,18 @@ import argparse
 from datetime import datetime
 from colorama import Fore, Style, init
 
+#--------------------------------------
+#Librerias para generar un reporte PDF.
+#--------------------------------------
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+#--------------------------------------
+
+#--------------------------------------
+#Log analyzer
+#--------------------------------------
 init(autoreset=True)
 
 """Valida si la ruta del archivo de logs existe"""
@@ -48,6 +60,61 @@ def save_to_json(result: dict, output_file: str):
     except Exception as e:
         print(Fore.RED + f"[ERROR] No se pudo guardar el archivo: {e}")
         
+#-----------------------------------------
+#Generar reporte PDF.
+#-----------------------------------------
+
+def generate_pdf_report(results: dict, source_file: str, output_pdf: str):
+    c = canvas.Canvas(output_pdf, pagesize=A4)
+    widht, height = A4
+    y = height - 100
+    
+    #Encabezado
+    c.setFont("Helvetica-Bold", 16)
+    c.setFillColor(colors.darkblue)
+    c.drawString(50, y, "Log Security Analyzer Report")
+    c.setFillColor(colors.black)
+    y -= 25
+    c.setFont("Helvetica", 11)
+    c.drawString(50, y, f"Archivo analizado: {source_file}")
+    y -= 15
+    c.drawString(50, y, f"Fecha de generacion: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    y -= 25
+    
+    #Eventos sospechosos totales
+    total = sum(len(v) for v in results.values())
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, y, f"Eventos sospechosos totales: {total}")
+    y -= 25
+    
+    #Conteo por categoria
+    c.setFont("Helvetica-Bold", 11)
+    for category, matches in results.items():
+        c.drawString(70, y, f"* {category.replace('_', ' ').capitalize()}: {len(matches)}")
+        y -= 15
+    y -= 20
+    
+    #Detalles
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(50, y, "Detalles de eventos:")
+    y -= 20
+    c.setFont("Helvetica", 10)
+    
+    for category, matches in results.items():
+        if not matches:
+            continue
+        c.setFont("Helvetica", 9)
+        for event in matches:
+            text = f"Linea {event['line']}: {event['content'][:100]}"
+            c.drawString(80, y, text)
+            y -= 11
+            if y < 100:  #Salto de pagina
+                c.showPage()
+                y = height - 80
+                c.setFont("Helvetica", 9)
+    
+    c.save
+    print(Fore.GREEN + f"Reporte PDF generado: {output_pdf}")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -55,6 +122,7 @@ def main():
     )
     parser.add_argument("--file", "-f", help="Ruta del archivo de log a analizar.")
     parser.add_argument("--out", "-o", help="Nombre del archivo JSON de salida (opcional).")
+    parser.add_argument("--pdf", action="store_true", help="Genera un reporte PDF a demas de JSON.")
     args = parser.parse_args()
 
     print(Fore.CYAN + "\n=== Log Security Analyzer ===\n")
@@ -79,6 +147,9 @@ def main():
     out_file = args.out or f"log_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     save_to_json(results, out_file)
     
-
+    if args.pdf:
+        pdf_name = os.path.splitext(out_file)[0] + ".pdf"
+        generate_pdf_report(results, log_path, pdf_name)
+        
 if __name__ == "__main__":
     main()

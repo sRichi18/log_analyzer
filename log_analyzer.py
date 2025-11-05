@@ -113,7 +113,7 @@ def generate_pdf_report(results: dict, source_file: str, output_pdf: str):
                 y = height - 80
                 c.setFont("Helvetica", 9)
     
-    c.save
+    c.save()
     print(Fore.GREEN + f"Reporte PDF generado: {output_pdf}")
 
 def main():
